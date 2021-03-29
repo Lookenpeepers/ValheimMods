@@ -8,7 +8,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.4")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.5")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -20,24 +20,47 @@ namespace DepositAnywhere
         private static ConfigEntry<bool> enableMod;
         public static ConfigEntry<float> range;
         public static ConfigEntry<string> keyDepositString;
+        public static ConfigEntry<int> excludedSlots;
         public static KeyCode configDepositKey;
-
-
+        
         void Awake()
         {
             enableMod = Config.Bind("2 - Global", "Enable Mod", true, "Enable or disable this mod");
             range = Config.Bind<float>("3 - General", "ContainerRange", 10f, "The maximum range to send items");
             keyDepositString = Config.Bind("1 - Deposit All Items", "Deposit All Key", "G", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
+            excludedSlots = Config.Bind("1 - Deposit All Items", "Excluded Slots", 0, "Number of Inventory slots to exclude from depositing.");
             configDepositKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyDepositString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
-
+        private static ItemDrop.ItemData GetItemAtIndex(Inventory inv ,int index)
+        {
+            ItemDrop.ItemData item = null;
+            int tmpX;
+            int tmpY;
+            if (index > 7 && index <= 15)
+            {
+                tmpY = 1;
+                tmpX = index - 8;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 15 && index <= 23)
+            {
+                tmpY = 2;
+                tmpX = index - 16;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 23)
+            {
+                tmpY = 3;
+                tmpX = index - 24;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            return item;
+        }
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Player), "Update")]
         public static void PlayerUpdate_Patch(Player __instance)
         {
-            var player = __instance;
-
             bool keyDown = Input.GetKeyDown(configDepositKey);
 
             if (keyDown)
@@ -58,28 +81,24 @@ namespace DepositAnywhere
                 }
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
-                for (var x = 0; x < 8; x++)
+                for (var i = 8 + excludedSlots.Value; i < 32; i++)
                 {
-                    for (var y = 1; y < 4; y++)
+                    ItemDrop.ItemData item = GetItemAtIndex(inventory, i);
+                    string itemName = item?.m_shared.m_name;
+                    //loop through each chest to find a matching item
+                    if (item != null && !item.m_equiped)
                     {
-                        ItemDrop.ItemData item = inventory.GetItemAt(x, y);
-                        string itemName = item?.m_shared.m_name;
-
-                        //loop through each chest to find a matching item
-                        if (item != null)
+                        for (var j = 0; j < boxes.Count; j++)
                         {
-                            for (var i = 0; i < boxes.Count; i++)
+                            Inventory boxInventory = boxes[j].GetInventory();
+                            List<string> boxItems = new List<string>();
+                            foreach (ItemDrop.ItemData boxItem in boxInventory.GetAllItems())
                             {
-                                Inventory boxInventory = boxes[i].GetInventory();
-                                List<string> boxItems = new List<string>();
-                                foreach (ItemDrop.ItemData boxItem in boxInventory.GetAllItems())
-                                {
-                                    boxItems.Add(boxItem?.m_shared.m_name);
-                                }
-                                if (boxItems.Contains(itemName))
-                                {
-                                    boxInventory.MoveItemToThis(inventory, item);
-                                }
+                                boxItems.Add(boxItem?.m_shared.m_name);
+                            }
+                            if (boxItems.Contains(itemName))
+                            {
+                                boxInventory.MoveItemToThis(inventory, item);
                             }
                         }
                     }
