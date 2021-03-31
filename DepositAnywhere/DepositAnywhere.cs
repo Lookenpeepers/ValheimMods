@@ -34,67 +34,6 @@ namespace DepositAnywhere
             configDepositKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyDepositString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
-        private static ItemDrop.ItemData GetItemAtIndex(Inventory inv ,int index)
-        {
-            ItemDrop.ItemData item = null;
-            int tmpX;
-            int tmpY;
-            if (index > 7 && index <= 15)
-            {
-                tmpY = 1;
-                tmpX = index - 8;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 15 && index <= 23)
-            {
-                tmpY = 2;
-                tmpX = index - 16;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 23 && index <= 31)
-            {
-                tmpY = 3;
-                tmpX = index - 24;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 31 && index <= 39)
-            {
-                tmpY = 4;
-                tmpX = index - 32;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 39 && index <= 47)
-            {
-                tmpY = 5;
-                tmpX = index - 40;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 47 && index <= 55)
-            {
-                tmpY = 6;
-                tmpX = index - 48;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 55 && index <= 63)
-            {
-                tmpY = 7;
-                tmpX = index - 56;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 63 && index <= 71)
-            {
-                tmpY = 8;
-                tmpX = index - 64;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            else if (index > 71 && index <= 79)
-            {
-                tmpY = 9;
-                tmpX = index - 72;
-                return inv.GetItemAt(tmpX, tmpY);
-            }
-            return item;
-        }
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Player), "Update")]
         public static void PlayerUpdate_Patch(Player __instance)
