@@ -8,7 +8,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.7")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.8")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
