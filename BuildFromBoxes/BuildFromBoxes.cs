@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace BuildFromBoxes
 {
-    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.1")]
+    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.2")]
     [HarmonyPatch]
     public class BuildFromBoxes : BaseUnityPlugin
     {
@@ -39,7 +39,7 @@ namespace BuildFromBoxes
         void Awake()
         {
             enableMod = Config.Bind("2 - Global", "Enable Mod", true, "Enable or disable this mod");
-            keyPullString = Config.Bind("1 - Deposit All Items", "Deposit All Key", "N", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
+            keyPullString = Config.Bind("1 - Pull Items", "Pull Key", "N", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             configPullKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyPullString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
