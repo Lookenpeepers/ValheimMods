@@ -43,7 +43,7 @@ namespace DepositAnywhere
             float colNumber = 0; //the starting column (x)
             if (index != 0)
             {
-                rowNumber = (float)Math.Floor((float)index / 8) + 1;
+                rowNumber = (float)Math.Floor((float)index / 8);
             }
             float subtracter = (float)Math.Floor((float)index / 8);
             colNumber = (((float)index / 8) - subtracter) * 8;
