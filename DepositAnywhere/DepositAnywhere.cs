@@ -59,37 +59,37 @@ namespace DepositAnywhere
             }
             else if (index > 31 && index <= 39)
             {
-                tmpY = 3;
+                tmpY = 4;
                 tmpX = index - 32;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             else if (index > 39 && index <= 47)
             {
-                tmpY = 3;
+                tmpY = 5;
                 tmpX = index - 40;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             else if (index > 47 && index <= 55)
             {
-                tmpY = 3;
+                tmpY = 6;
                 tmpX = index - 48;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             else if (index > 55 && index <= 63)
             {
-                tmpY = 3;
+                tmpY = 7;
                 tmpX = index - 56;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             else if (index > 63 && index <= 71)
             {
-                tmpY = 3;
+                tmpY = 8;
                 tmpX = index - 64;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             else if (index > 71 && index <= 79)
             {
-                tmpY = 3;
+                tmpY = 9;
                 tmpX = index - 72;
                 return inv.GetItemAt(tmpX, tmpY);
             }
