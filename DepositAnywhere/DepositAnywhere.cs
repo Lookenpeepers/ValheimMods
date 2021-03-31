@@ -119,9 +119,10 @@ namespace DepositAnywhere
                 }
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
-                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value; i++)
+                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value-1; i++)
                 {
-                    ItemDrop.ItemData item = GetItemAtIndex(inventory, i);
+                    //ItemDrop.ItemData item = GetItemAtIndex(inventory, i);
+                    ItemDrop.ItemData item = inventory.GetItem(i);
                     string itemName = item?.m_shared.m_name;
                     //loop through each chest to find a matching item
                     if (item != null && !item.m_equiped)
