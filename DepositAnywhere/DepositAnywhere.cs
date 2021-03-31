@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
@@ -8,7 +9,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.8")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.9")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -33,6 +34,23 @@ namespace DepositAnywhere
             NumberOfInventorySlots = Config.Bind("1 - Deposit All Items", "Number of Inventory Slots", 32, "How many inventory slots. (to work with mods that increase inventory slots)");
             configDepositKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyDepositString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
+        }
+        private static Vector2Int ConvertToGrid(int index)
+        {
+            Vector2Int p = new Vector2Int(0, 0);
+            //
+            float rowNumber = 1; //the starting row (y)
+            float colNumber = 0; //the starting column (x)
+            if (index != 0)
+            {
+                rowNumber = (float)Math.Floor((float)index / 8) + 1;
+            }
+            float subtracter = (float)Math.Floor((float)index / 8);
+            colNumber = (((float)index / 8) - subtracter) * 8;
+
+            p.y = (int)rowNumber;
+            p.x = (int)colNumber;
+            return p;
         }
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Player), "Update")]
@@ -60,8 +78,8 @@ namespace DepositAnywhere
                 Inventory inventory = __instance.GetInventory();
                 for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value-1; i++)
                 {
-                    //ItemDrop.ItemData item = GetItemAtIndex(inventory, i);
-                    ItemDrop.ItemData item = inventory.GetItem(i);
+                    Vector2Int location = ConvertToGrid(i);
+                    ItemDrop.ItemData item = inventory.GetItemAt(location.x,location.y);
                     string itemName = item?.m_shared.m_name;
                     //loop through each chest to find a matching item
                     if (item != null && !item.m_equiped)
