@@ -8,7 +8,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.5")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.0.6")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -21,6 +21,7 @@ namespace DepositAnywhere
         public static ConfigEntry<float> range;
         public static ConfigEntry<string> keyDepositString;
         public static ConfigEntry<int> excludedSlots;
+        public static ConfigEntry<int> NumberOfInventorySlots;
         public static KeyCode configDepositKey;
         
         void Awake()
@@ -29,6 +30,7 @@ namespace DepositAnywhere
             range = Config.Bind<float>("3 - General", "ContainerRange", 10f, "The maximum range to send items");
             keyDepositString = Config.Bind("1 - Deposit All Items", "Deposit All Key", "G", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             excludedSlots = Config.Bind("1 - Deposit All Items", "Excluded Slots", 0, "Number of Inventory slots to exclude from depositing.");
+            NumberOfInventorySlots = Config.Bind("1 - Deposit All Items", "Number of Inventory Slots", 32, "How many inventory slots. (to work with mods that increase inventory slots)");
             configDepositKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyDepositString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
@@ -49,10 +51,46 @@ namespace DepositAnywhere
                 tmpX = index - 16;
                 return inv.GetItemAt(tmpX, tmpY);
             }
-            else if (index > 23)
+            else if (index > 23 && index <= 31)
             {
                 tmpY = 3;
                 tmpX = index - 24;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 31 && index <= 39)
+            {
+                tmpY = 3;
+                tmpX = index - 32;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 39 && index <= 47)
+            {
+                tmpY = 3;
+                tmpX = index - 40;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 47 && index <= 55)
+            {
+                tmpY = 3;
+                tmpX = index - 48;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 55 && index <= 63)
+            {
+                tmpY = 3;
+                tmpX = index - 56;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 63 && index <= 71)
+            {
+                tmpY = 3;
+                tmpX = index - 64;
+                return inv.GetItemAt(tmpX, tmpY);
+            }
+            else if (index > 71 && index <= 79)
+            {
+                tmpY = 3;
+                tmpX = index - 72;
                 return inv.GetItemAt(tmpX, tmpY);
             }
             return item;
@@ -81,7 +119,7 @@ namespace DepositAnywhere
                 }
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
-                for (var i = 8 + excludedSlots.Value; i < 32; i++)
+                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value; i++)
                 {
                     ItemDrop.ItemData item = GetItemAtIndex(inventory, i);
                     string itemName = item?.m_shared.m_name;
