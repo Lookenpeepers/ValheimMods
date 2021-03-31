@@ -12,11 +12,10 @@ using UnityEngine.UI;
 
 namespace BuildFromBoxes
 {
-    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.2")]
+    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.1")]
     [HarmonyPatch]
     public class BuildFromBoxes : BaseUnityPlugin
     {
-        private readonly Harmony harmony = new Harmony("Lookenpeepers-DepositAnywhere");
         static Player player;
         static List<Container> containerList = new List<Container>();
         private static ConfigEntry<bool> enableMod;
