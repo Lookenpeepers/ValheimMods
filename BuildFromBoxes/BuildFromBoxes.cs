@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace BuildFromBoxes
 {
-    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.2")]
+    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.3")]
     [HarmonyPatch]
     public class BuildFromBoxes : BaseUnityPlugin
     {
@@ -22,6 +22,7 @@ namespace BuildFromBoxes
         static List<ItemToMove> itemsToMove;
         public static ConfigEntry<string> keyPullString;
         public static KeyCode configPullKey;
+        public static ConfigEntry<int> NumSlots;
 
         private struct StrInt
         {
@@ -33,7 +34,7 @@ namespace BuildFromBoxes
             public Container source;
             public ItemDrop.ItemData item;
             public int amount;
-            public Vector2i destinationPos;
+            public Vector2Int destinationPos;
         }
 
         void Awake()
@@ -41,6 +42,7 @@ namespace BuildFromBoxes
             enableMod = Config.Bind("2 - Global", "Enable Mod", true, "Enable or disable this mod");
             keyPullString = Config.Bind("1 - Pull Items", "Pull Key", "N", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             configPullKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyPullString.Value);
+            NumSlots = Config.Bind("1 - Pull Items", "Number of Inventory Slots",32,"The number of slots in your player inventory(for mods that increase inventory size)");
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
         [HarmonyPostfix]
@@ -70,7 +72,7 @@ namespace BuildFromBoxes
         {
             List<int> deletables = new List<int>();
             itemsToMove = new List<ItemToMove>();
-            unusables = new List<Vector2i>();
+            unusables = new List<Vector2Int>();
             foreach (Container c in containerList)
             {
                 if (c == null)
@@ -141,7 +143,8 @@ namespace BuildFromBoxes
                         }
                         else if (player.GetInventory().GetEmptySlots() >= piece.m_resources.Length)
                         {
-                            Debug.Log("Pulling Items");
+                            //inventory has enough space for items
+                            Debug.Log("Pulling " + piece.m_resources.ElementAt(i).m_amount + " " + _totals[i].name);
                             PullItems(piece.m_resources.ElementAt(i).m_amount, "$item_" + _totals[i].name.ToLower());
                         }
                         else
@@ -210,25 +213,42 @@ namespace BuildFromBoxes
             }
             return true;
         }
-        private static Vector2i GetOpenInvSlot()
+        private static Vector2Int ConvertToGrid(int index)
         {
-            Vector2i tmp = new Vector2i(0, 0);
-            for (var x = 0; x < 8; x++)
+            Vector2Int p = new Vector2Int(0, 0);
+            //
+            float rowNumber = 1; //the starting row (y)
+            float colNumber = 0; //the starting column (x)
+            if (index != 0)
             {
-                for (var y = 0; y < 4; y++)
+                rowNumber = (float)Math.Floor((float)index / 8);
+            }
+            float subtracter = (float)Math.Floor((float)index / 8);
+            colNumber = (((float)index / 8) - subtracter) * 8;
+
+            p.y = (int)rowNumber;
+            p.x = (int)colNumber;
+            return p;
+        }
+        private static Vector2Int GetOpenInvSlot()
+        {
+            Vector2Int tmp = new Vector2Int(0, 0);
+
+            for (var i = 0; i < NumSlots.Value; i++)
+            {
+                Vector2Int toGrid = ConvertToGrid(i);
+                ItemDrop.ItemData tmpItem = player.GetInventory().GetItemAt(toGrid.x, toGrid.y);
+                if (tmpItem == null && !unusables.Contains(new Vector2Int(toGrid.x, toGrid.y)))
                 {
-                    if (player.GetInventory().GetItemAt(x, y) == null && !unusables.Contains(new Vector2i(x, y)))
-                    {
-                        tmp = new Vector2i(x, y);
-                        return tmp;
-                    }
+                    tmp = new Vector2Int(toGrid.x, toGrid.y);
+                    return tmp;
                 }
             }
             return tmp;
         }
-        private static Vector2i GetExistingItem(ItemDrop.ItemData item, int amount)
+        private static Vector2Int GetExistingItem(ItemDrop.ItemData item, int amount)
         {
-            Vector2i tmp = new Vector2i(0, 0);
+            Vector2Int tmp = new Vector2Int(0, 0);
             for (var x = 0; x < 8; x++)
             {
                 for (var y = 0; y < 4; y++)
@@ -237,7 +257,7 @@ namespace BuildFromBoxes
                     {
                         if (player.GetInventory().GetItemAt(x, y).m_stack <= item.m_shared.m_maxStackSize - amount)
                         {
-                            tmp = new Vector2i(x, y);
+                            tmp = new Vector2Int(x, y);
                             return tmp;
                         }
                     }
@@ -252,13 +272,14 @@ namespace BuildFromBoxes
             {
                 player.GetInventory().MoveItemToThis(itm.source.GetInventory(), itm.item, itm.amount, itm.destinationPos.x, itm.destinationPos.y);
             }
+            itemsToMove.Clear();
         }
         //Pull from containers
-        static List<Vector2i> unusables = new List<Vector2i>();
+        static List<Vector2Int> unusables = new List<Vector2Int>();
         static void PullItems(int amount, string itemName, bool alreadyHave = false)
         {
             bool itemRetrieved = false;
-            Vector2i stillStacking = new Vector2i(-1, -1);
+            Vector2Int stillStacking = new Vector2Int(-1, -1);
             foreach (Container c in containerList)
             {
                 if (!itemRetrieved)
@@ -275,15 +296,21 @@ namespace BuildFromBoxes
                                 {
                                     Debug.Log("Rest of " + item.m_shared.m_name + " in one box");
                                     Debug.Log(itemPos.ToString());
-                                    Vector2i tmp = stillStacking;
+                                    Vector2Int tmp = stillStacking;
                                     //mark item for moving, don't move it here.
                                     ItemToMove itm = new ItemToMove();
                                     itm.source = c;
                                     itm.item = item;
                                     itm.amount = amount;
                                     itm.destinationPos = tmp;
-                                    unusables.Add(tmp);
-                                    itemsToMove.Add(itm);
+                                    if (!unusables.Contains(tmp))
+                                    {
+                                        unusables.Add(tmp);
+                                    }
+                                    if (!itemsToMove.Contains(itm))
+                                    {
+                                        itemsToMove.Add(itm);
+                                    }
                                     //player.GetInventory().MoveItemToThis(c.GetInventory(), item, amount, tmp.x, tmp.y);
                                     //stillStacking = new Vector2i(-1, -1);
                                     itemRetrieved = true;
@@ -293,15 +320,21 @@ namespace BuildFromBoxes
                                 {
                                     Debug.Log("All " + item.m_shared.m_name + " in one box");
                                     Debug.Log(itemPos.ToString());
-                                    Vector2i tmp = GetExistingItem(item, amount);
+                                    Vector2Int tmp = GetExistingItem(item, amount);
                                     //mark item for moving, don't move it here.
                                     ItemToMove itm = new ItemToMove();
                                     itm.source = c;
                                     itm.item = item;
                                     itm.amount = amount;
                                     itm.destinationPos = tmp;
-                                    unusables.Add(tmp);
-                                    itemsToMove.Add(itm);
+                                    if (!unusables.Contains(tmp))
+                                    {
+                                        unusables.Add(tmp);
+                                    }
+                                    if (!itemsToMove.Contains(itm))
+                                    {
+                                        itemsToMove.Add(itm);
+                                    }
                                     //get open slots
                                     //player.GetInventory().MoveItemToThis(c.GetInventory(), item, amount, tmp.x, tmp.y);
                                     itemRetrieved = true;
@@ -314,15 +347,21 @@ namespace BuildFromBoxes
                                 {
                                     Debug.Log("Rest of " + item.m_shared.m_name + " in one box");
                                     Debug.Log(itemPos.ToString());
-                                    Vector2i tmp = stillStacking;
+                                    Vector2Int tmp = stillStacking;
                                     //mark item for moving, don't move it here.
                                     ItemToMove itm = new ItemToMove();
                                     itm.source = c;
                                     itm.item = item;
                                     itm.amount = amount;
                                     itm.destinationPos = tmp;
-                                    unusables.Add(tmp);
-                                    itemsToMove.Add(itm);
+                                    if (!unusables.Contains(tmp))
+                                    {
+                                        unusables.Add(tmp);
+                                    }
+                                    if (!itemsToMove.Contains(itm))
+                                    {
+                                        itemsToMove.Add(itm);
+                                    }
                                     //player.GetInventory().MoveItemToThis(c.GetInventory(), item, amount, tmp.x, tmp.y);
                                     //stillStacking = new Vector2i(-1, -1);
                                     itemRetrieved = true;
@@ -332,15 +371,21 @@ namespace BuildFromBoxes
                                 {
                                     Debug.Log("All " + item.m_shared.m_name + " in one box");
                                     Debug.Log(itemPos.ToString());
-                                    Vector2i tmp = GetOpenInvSlot();
+                                    Vector2Int tmp = GetOpenInvSlot();
                                     //mark item for moving, don't move it here.
                                     ItemToMove itm = new ItemToMove();
                                     itm.source = c;
                                     itm.item = item;
                                     itm.amount = amount;
                                     itm.destinationPos = tmp;
-                                    unusables.Add(tmp);
-                                    itemsToMove.Add(itm);
+                                    if (!unusables.Contains(tmp))
+                                    {
+                                        unusables.Add(tmp);
+                                    }
+                                    if (!itemsToMove.Contains(itm))
+                                    {
+                                        itemsToMove.Add(itm);
+                                    }
                                     //get open slots
                                     //player.GetInventory().MoveItemToThis(c.GetInventory(), item, amount, tmp.x, tmp.y);
                                     itemRetrieved = true;
@@ -361,8 +406,11 @@ namespace BuildFromBoxes
                                 itm.item = item;
                                 itm.amount = item.m_stack;
                                 itm.destinationPos = stillStacking;
-                                itemsToMove.Add(itm);
-                                amount -= item.m_stack;
+                                if (!itemsToMove.Contains(itm))
+                                {
+                                    itemsToMove.Add(itm);
+                                    amount -= item.m_stack;
+                                }
                             }
                             else
                             {
@@ -374,8 +422,11 @@ namespace BuildFromBoxes
                                 itm.item = item;
                                 itm.amount = item.m_stack;
                                 itm.destinationPos = stillStacking;
-                                itemsToMove.Add(itm);
-                                amount -= item.m_stack;
+                                if (!itemsToMove.Contains(itm))
+                                {
+                                    itemsToMove.Add(itm);
+                                    amount -= item.m_stack;
+                                }
                             }
                         }
                     }
