@@ -78,7 +78,7 @@ namespace DepositAnywhere
                 }
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
-                bool success = false;
+                bool success = true;
                 for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value; i++)
                 {
                     Vector2Int location = ConvertToGrid(i);
