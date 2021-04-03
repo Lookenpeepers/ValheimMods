@@ -9,21 +9,21 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.4")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.5")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
     public class DepositAnywhere : BaseUnityPlugin
     {
-        private readonly Harmony harmony = new Harmony("Lookenpeepers-DepositAnywhere");
-
         public static List<Container> containerList = new List<Container>();
         private static ConfigEntry<bool> enableMod;
         public static ConfigEntry<float> range;
         public static ConfigEntry<string> keyDepositString;
         public static ConfigEntry<int> excludedSlots;
-        public static ConfigEntry<int> NumberOfInventorySlots;
         public static KeyCode configDepositKey;
+
+        private static int invSlotCount;
+        private static int invWidth;
 
         void Awake()
         {
@@ -31,9 +31,18 @@ namespace DepositAnywhere
             range = Config.Bind<float>("3 - General", "ContainerRange", 10f, "The maximum range to send items");
             keyDepositString = Config.Bind("1 - Deposit All Items", "Deposit All Key", "G", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             excludedSlots = Config.Bind("1 - Deposit All Items", "Excluded Slots", 0, "Number of Inventory slots to exclude from depositing.");
-            NumberOfInventorySlots = Config.Bind("1 - Deposit All Items", "Number of Inventory Slots", 32, "How many inventory slots. (to work with mods that increase inventory slots)");
             configDepositKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyDepositString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
+        }
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Player), "Awake")]
+        public static void PlayerAwake_Patch(Player __instance)
+        {
+            Inventory inv = __instance.GetInventory();
+            int invX = inv.GetWidth();
+            int invY = inv.GetHeight();
+            invSlotCount = invX * invY;
+            invWidth = invX;
         }
         private static Vector2Int ConvertToGrid(int index)
         {
@@ -79,7 +88,7 @@ namespace DepositAnywhere
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
                 bool success = true;
-                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value; i++)
+                for (var i = invWidth + excludedSlots.Value; i < invSlotCount; i++)
                 {
                     Vector2Int location = ConvertToGrid(i);
                     ItemDrop.ItemData item = inventory.GetItemAt(location.x, location.y);
@@ -126,7 +135,6 @@ namespace DepositAnywhere
                                             int amountToDeposit = HowMuchCanDeposit(boxItem);
                                             if (amountToDeposit > 0)
                                             {
-                                                //_output += ("Can deposit " + boxItem.m_shared.m_name + "\n");
                                                 //we can fit some on this stack, move it.
                                                 //if deposit some is true, then there is still some of the item left in player inventory
                                                 if (!DepositSome(inventory, boxInventory, item, boxItem))
@@ -202,19 +210,6 @@ namespace DepositAnywhere
             {
                 _output += ("Depositing " + inventoryItem.m_stack + " " + inventoryItem.m_shared.m_name + " At : " + location.ToString() + "\n");
                 boxInventory.MoveItemToThis(playerInventory, inventoryItem, inventoryItem.m_stack, location.x, location.y);
-                return false;
-            }
-        }
-        private static bool CanDepositAll(ItemDrop.ItemData inventoryItem, ItemDrop.ItemData boxItem)
-        {
-            int invItemAmount = inventoryItem.m_stack;
-            int boxItemAmount = boxItem.m_stack;
-            if (invItemAmount + boxItemAmount <= boxItem.m_shared.m_maxStackSize)
-            {
-                return true;
-            }
-            else
-            {
                 return false;
             }
         }
