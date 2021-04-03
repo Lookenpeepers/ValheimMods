@@ -9,7 +9,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.0")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.2")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -76,7 +76,7 @@ namespace DepositAnywhere
                 }
                 List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                 Inventory inventory = __instance.GetInventory();
-                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value-1; i++)
+                for (var i = 8 + excludedSlots.Value; i < NumberOfInventorySlots.Value; i++)
                 {
                     Vector2Int location = ConvertToGrid(i);
                     ItemDrop.ItemData item = inventory.GetItemAt(location.x,location.y);
@@ -95,6 +95,7 @@ namespace DepositAnywhere
                             if (boxItems.Contains(itemName))
                             {
                                 boxInventory.MoveItemToThis(inventory, item);
+                                break;
                             }
                         }
                     }
