@@ -9,7 +9,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.5")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.6")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -92,13 +92,14 @@ namespace DepositAnywhere
                 {
                     Vector2Int location = ConvertToGrid(i);
                     ItemDrop.ItemData item = inventory.GetItemAt(location.x, location.y);
-                    string itemName = item?.m_shared.m_name;
+                    string itemName = item?.m_shared.m_name;                    
+                    bool deposited = false;
                     //loop through each chest to find a matching item
                     if (item != null && !item.m_equiped)
                     {
-                        _output += ("======= ITEM =======\n");
+                        _output += ("===================== ITEM =====================\n");
                         _output += ("Name : " + item.m_shared.m_name + "\n");
-                        bool deposited = false;
+                        
                         for (var j = 0; j < boxes.Count; j++)
                         {
                             Inventory boxInventory = boxes[j].GetInventory();
@@ -154,18 +155,34 @@ namespace DepositAnywhere
                             }
                             if (deposited)
                             {
+                                //deposited the item, break box loop
                                 break;
                             }
-                        }
-                        if (deposited)
+                        }                        
+                    }
+                    else if (item != null && item.m_equiped)
+                    {
+                        //equipped item, skip it
+                        deposited = true;
+                    }
+                    else if(item == null)
+                    {
+                        //non-existant item
+                        deposited = true;
+                    }
+                    if (deposited)
+                    {
+                        if (itemName != null)
                         {
                             _output += ("Successfully deposited " + item.m_shared.m_name + "\n");
+                            _output += "\n";
                         }
-                        else
-                        {
-                            _output += ("Couldn't deposit all " + item.m_shared.m_name + "\n");
-                            success = false;
-                        }
+                    }
+                    else
+                    {
+                        _output += ("Couldn't deposit all " + item.m_shared.m_name + "\n");
+                        _output += "\n";
+                        success = false;
                     }
                 }
                 if (success)
@@ -175,7 +192,7 @@ namespace DepositAnywhere
                 else
                 {
                     ShowHUDMessage("Failed to deposit all items");
-                }
+                }                
                 Debug.Log(_output);
             }
         }
