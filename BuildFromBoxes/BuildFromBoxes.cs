@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace BuildFromBoxes
 {
-    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.4")]
+    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.5")]
     [HarmonyPatch]
     public class BuildFromBoxes : BaseUnityPlugin
     {
@@ -21,7 +21,10 @@ namespace BuildFromBoxes
         private static ConfigEntry<bool> enableMod;
         public static ConfigEntry<string> keyPullString;
         public static KeyCode configPullKey;
-        public static ConfigEntry<int> NumSlots;
+
+        private static int invSlotCount;
+        private static int invWidth;
+        private static int invHeight;
 
         private struct ItemToMove
         {
@@ -39,7 +42,6 @@ namespace BuildFromBoxes
             enableMod = Config.Bind("2 - Global", "Enable Mod", true, "Enable or disable this mod");
             keyPullString = Config.Bind("1 - Pull Items", "Pull Key", "N", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             configPullKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyPullString.Value);
-            NumSlots = Config.Bind("1 - Pull Items", "Number of Inventory Slots", 32, "The number of slots in your player inventory(for mods that increase inventory size)");
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
         }
         [HarmonyPostfix]
@@ -54,6 +56,7 @@ namespace BuildFromBoxes
                 Piece p = __instance.GetSelectedPiece();
                 if (p != null)
                 {
+                    _output = "\n";
                     RemoveInvalidChests(p);
                     //GetResourcesForPull(p);
                 }
@@ -64,7 +67,13 @@ namespace BuildFromBoxes
         private static void PlayerAwake_Patch(Player __instance)
         {
             player = __instance;
+            int x = __instance.GetInventory().GetWidth();
+            int y = __instance.GetInventory().GetHeight();
+            invSlotCount = x * y;
+            invWidth = x;
+            invHeight = y;
         }
+        static string _output = "";
         private static List<ItemToMove> GetNeededItems(Piece p)
         {
             List<ItemToMove> neededItems = new List<ItemToMove>();
@@ -101,7 +110,7 @@ namespace BuildFromBoxes
                     {
                         ItemToMove toAdd = new ItemToMove(reqItem.m_shared.m_name, amountNeeded);
                         neededItems.Add(toAdd);
-                        Debug.Log("Need " + amountNeeded + " " + reqItem.m_shared.m_name);
+                        _output += ("Need " + amountNeeded + " " + reqItem.m_shared.m_name + "\n");
                     }
                 }
                 else
@@ -109,7 +118,7 @@ namespace BuildFromBoxes
                     //doesn't exist
                     ItemToMove toAdd = new ItemToMove(reqItem.m_shared.m_name, amountNeeded);
                     neededItems.Add(toAdd);
-                    Debug.Log("Need " + amountNeeded + " " + reqItem.m_shared.m_name);
+                    _output += ("Need " + amountNeeded + " " + reqItem.m_shared.m_name + "\n");
                 }
             }
             return neededItems;
@@ -168,7 +177,7 @@ namespace BuildFromBoxes
             List<ItemDrop.ItemData> playerItems = new List<ItemDrop.ItemData>();
             playerItems.AddRange(player.GetInventory().GetAllItems().ToArray());
             string[] strPlayerItems = playerItems.Select(itm => itm.m_shared.m_name).Distinct().ToArray();
-
+            _output += "Need " + p.Count + " items\n";
             foreach (ItemToMove pr in p)
             {
                 //ItemDrop.ItemData reqItem = pr.m_resItem.m_itemData;
@@ -179,55 +188,97 @@ namespace BuildFromBoxes
 
                 foreach (Container c in containerList)
                 {
-                    List<ItemDrop.ItemData> BoxItems = new List<ItemDrop.ItemData>();
-                    BoxItems.AddRange(c.GetInventory().GetAllItems().ToArray());
-                    string[] strBoxItems = BoxItems.Select(itm => itm.m_shared.m_name).Distinct().ToArray();
-
-
-                    if (strBoxItems.Contains(pr.name))
+                    if (amountNeeded > 0)
                     {
-                        Debug.Log("Found " + pr.name);
-                        //found out item, see if it's enough
-                        foreach (ItemDrop.ItemData boxItem in BoxItems)
-                        {
-                            if (boxItem.m_shared.m_name == pr.name)
-                            {
-                                int boxItemAmount = boxItem.m_stack;
-                                if (boxItemAmount >= amountNeeded)
-                                {
-                                    if (amountNeeded > 0)
-                                    {
-                                        //still need it, check for open slots
+                        List<ItemDrop.ItemData> BoxItems = new List<ItemDrop.ItemData>();
+                        BoxItems.AddRange(c.GetInventory().GetAllItems().ToArray());
+                        string[] strBoxItems = BoxItems.Select(itm => itm.m_shared.m_name).Distinct().ToArray();
 
-                                        player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, amountNeeded, openSlot.x, openSlot.y);
-                                        amountNeeded = 0;
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        //obtained all of this item, break boxitem loop
-                                        break;
-                                    }
-                                }
-                                else
+                        if (strBoxItems.Contains(pr.name))
+                        {
+                            _output += ("Found " + pr.name + "\n");
+                            //found item, see if it's enough
+                            if (amountNeeded > 0)
+                            {
+                                //still need some, loop through box items
+                                foreach (ItemDrop.ItemData boxItem in BoxItems)
                                 {
-                                    player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, amountNeeded, openSlot.x, openSlot.y);
-                                    amountNeeded -= boxItemAmount;
+                                    if (boxItem.m_shared.m_name == pr.name)
+                                    {
+                                        //if the player inventory contains the needed item already, just move it.
+                                        //find item in inventory and return the gridposition
+                                        Vector2Int existingItem = GetExistingItemLocation(pr.name);
+                                        if (existingItem.x != -1)
+                                        {
+                                            //the item exists in the players inventory, pull the rest needed
+                                            int boxItemAmount = boxItem.m_stack;
+                                            if (boxItemAmount >= amountNeeded)
+                                            {
+                                                player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, amountNeeded, existingItem.x, existingItem.y);
+                                                _output += "Pulled All " + boxItem.m_shared.m_name + " to existing stack, No more needed\n";
+                                                amountNeeded = 0;
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, boxItemAmount, existingItem.x, existingItem.y);
+                                                amountNeeded -= boxItemAmount;
+                                                _output += "Pulled " + boxItemAmount + " " + boxItem.m_shared.m_name + " Still need " + amountNeeded + "\n";
+                                            }
+                                        }
+                                        else
+                                        {
+                                            int boxItemAmount = boxItem.m_stack;
+                                            if (boxItemAmount >= amountNeeded)
+                                            {
+                                                player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, amountNeeded, openSlot.x, openSlot.y);
+                                                _output += "Pulled " + amountNeeded + " " + boxItem.m_shared.m_name + " No more needed\n";
+                                                amountNeeded = 0;
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                player.GetInventory().MoveItemToThis(c.GetInventory(), boxItem, boxItemAmount, openSlot.x, openSlot.y);
+                                                amountNeeded -= boxItemAmount;
+                                                _output += "Pulled " + boxItemAmount + " " + boxItem.m_shared.m_name + " Still need " + amountNeeded + "\n";
+                                            }
+                                        }                                        
+                                    }
                                 }
                             }
                         }
-                        if (amountNeeded == 0)
-                        {
-                            break;
-                        }
+                    }
+                    else
+                    {
+                        //no more needed, break container loop.
+                        break;
                     }
                 }
             }
+            Debug.Log(_output);
             ShowHUDMessage("Pulled items");
+        }
+        private static Vector2Int GetExistingItemLocation(string name)
+        {
+            Vector2Int result = new Vector2Int(-1, -1);
+            for (var i = 0; i < invSlotCount; i++)
+            {
+                Vector2Int curLoc = ConvertToGrid(i);
+                ItemDrop.ItemData item = player.GetInventory().GetItemAt(curLoc.x, curLoc.y);
+                if (item != null)
+                {
+                    if (item.m_shared.m_name == name)
+                    {
+                        result = curLoc;
+                    }
+                }
+            }
+                return result;
         }
         private static void RemoveInvalidChests(Piece p)
         {
             List<int> deletables = new List<int>();
+            //Container[] boxes = containerList.Select(box => box.GetComponent<Container>()).ToArray();
             foreach (Container c in containerList)
             {
                 if (c == null)
@@ -241,53 +292,92 @@ namespace BuildFromBoxes
             }
             List<ItemToMove> neededItems = GetNeededItems(p);
             //GET EMPTY SLOTS DIFFERENTLY
-            Debug.Log("Free slots : " + player.GetInventory().GetEmptySlots());
-            if (neededItems.Count > 0 && neededItems.Count <= player.GetInventory().GetEmptySlots())
+            int emptySlots = GetEmptySpaces();
+            _output += ("Free slots : " + emptySlots + "\n");
+            if (neededItems.Count > 0 && neededItems.Count <= emptySlots)
             {
                 //we need items, check if we have the resources around us.
                 if (DoAllResourcesExist(neededItems))
                 {
                     //we have the resouces, pull what we need
-                    Debug.Log("Have all resources");
+                    _output += ("Have all resources\n");
                     DoItAll(neededItems);
                 }
+                else
+                {
+                    _output += "Not enough resources in range\n";
+                    ShowHUDMessage("Not enough resources in range");
+                    Debug.Log(_output);
+                }
             }
-            else if (neededItems.Count > 0 && neededItems.Count > player.GetInventory().GetEmptySlots())
+            else if (neededItems.Count > 0 && neededItems.Count > emptySlots)
             {
-                Debug.Log("Not enough inventory space");
-                ShowHUDMessage("Not enough inventory space");
+                //check if the needed item can stack into the player inventory
+                bool canPull = true;
+                foreach(ItemToMove neededitem in neededItems)
+                {
+                    if (CanItemStack(neededitem.name,neededitem.amount))
+                    {
+                        //item can stack, keep going
+                    }
+                    else
+                    {
+                        canPull = false;
+                        break;
+                    }
+                }
+                if (canPull)
+                {
+                    _output += ("stacking item with current stack\n");
+                    DoItAll(neededItems);
+                    //ShowHUDMessage("Not enough inventory space");
+                }
+                else
+                {
+                    _output += ("Not enough inventory space\n");
+                    ShowHUDMessage("Not enough inventory space");
+                    Debug.Log(_output);
+                }                
             }
             else if (neededItems.Count == 0)
             {
-                Debug.Log("Inventory contains all required items.");
+                _output += ("Inventory contains all required items.\n");
                 ShowHUDMessage("Inventory contains all items");
+                Debug.Log(_output);
             }
-            //if (DoAllResourcesExist(p))
-            //{
-            //    DoItAll(p);
-            //}
+        }
+        private static bool CanItemStack(string name, int amount)
+        {
+            bool canStack = false;
+            int amountToFit = amount;
+            for (var x = 0; x < invWidth; x++)
+            {
+                for(var y = 0; y <invHeight; y++)
+                {
+                    ItemDrop.ItemData tmpItem = player.GetInventory().GetItemAt(x, y);
+                    if (tmpItem.m_shared.m_name == name)
+                    {
+                        //check if we can stack it
+                        int canFit = tmpItem.m_shared.m_maxStackSize - tmpItem.m_stack;
+                        if (canFit >= amountToFit)
+                        {
+                            //it can fit.
+                            canStack = true;
+                            break;
+                        }
+                    }
+                }
+                if (canStack)
+                {
+                    break;
+                }
+            }
+            return canStack;
         }
         private static void ShowHUDMessage(string message)
         {
             MessageHud.MessageType ctr = MessageHud.MessageType.Center;
             MessageHud.instance.ShowMessage(ctr, message, 10);
-        }
-        private static bool InvContainsItem(Piece.Requirement pr)
-        {
-            foreach (ItemDrop.ItemData item in player.GetInventory().GetAllItems())
-            {
-                string cleanName = item.m_shared.m_name.Replace("$item_", "");
-                if (pr.m_resItem.name.ToLower() == cleanName)
-                {
-                    //check if it's the right amount
-                    if (item.m_stack >= pr.m_amount)
-                    {
-                        //success
-                        return true;
-                    }
-                }
-            }
-            return false;
         }
         private static Vector2Int ConvertToGrid(int index)
         {
@@ -306,11 +396,26 @@ namespace BuildFromBoxes
             p.x = (int)colNumber;
             return p;
         }
+        private static int GetEmptySpaces()
+        {
+            int result = 0;
+            for (var x = 0; x < invWidth; x++)
+            {
+                for (var y = 0; y < invHeight; y++)
+                {
+                    if (player.GetInventory().GetItemAt(x,y) == null)
+                    {
+                        result += 1;
+                    }                   
+                }
+            }
+            return result;
+        }
         private static Vector2Int GetOpenInvSlot()
         {
             Vector2Int tmp = new Vector2Int(-1, -1);
 
-            for (var i = 0; i < NumSlots.Value; i++)
+            for (var i = 0; i < invSlotCount; i++)
             {
                 Vector2Int toGrid = ConvertToGrid(i);
                 ItemDrop.ItemData tmpItem = player.GetInventory().GetItemAt(toGrid.x, toGrid.y);
