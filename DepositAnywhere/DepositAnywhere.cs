@@ -9,7 +9,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.6")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.7")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -70,129 +70,139 @@ namespace DepositAnywhere
 
             if (keyDown)
             {
-                _output = "\n";
                 keyDown = false;
-                //remove invalid chests
-                List<int> deletables = new List<int>();
-                foreach (Container c in containerList)
+                _output = "\n";
+                GameObject hoverItem = __instance.GetHoverObject();
+                if (hoverItem != null)
                 {
-                    if (c == null)
+                    _output += hoverItem.name + "\n";
+                    string hoverName = hoverItem.name;
+                    if (hoverName.Contains("chest") || hoverName.Contains("Container"))
                     {
-                        deletables.Add(containerList.IndexOf(c));
-                    }
-                }
-                for (var i = deletables.Count - 1; i > -1; i--)
-                {
-                    containerList.RemoveAt(deletables[i]);
-                }
-                List<Container> boxes = GetNearbyContainers(__instance.transform.position);
-                Inventory inventory = __instance.GetInventory();
-                bool success = true;
-                for (var i = invWidth + excludedSlots.Value; i < invSlotCount; i++)
-                {
-                    Vector2Int location = ConvertToGrid(i);
-                    ItemDrop.ItemData item = inventory.GetItemAt(location.x, location.y);
-                    string itemName = item?.m_shared.m_name;                    
-                    bool deposited = false;
-                    //loop through each chest to find a matching item
-                    if (item != null && !item.m_equiped)
-                    {
-                        _output += ("===================== ITEM =====================\n");
-                        _output += ("Name : " + item.m_shared.m_name + "\n");
-                        
-                        for (var j = 0; j < boxes.Count; j++)
+                        //hover item is a container
+                        //remove invalid chests
+                        List<int> deletables = new List<int>();
+                        foreach (Container c in containerList)
                         {
-                            Inventory boxInventory = boxes[j].GetInventory();
-                            //Debug.Log("max x : " + boxInventory.GetWidth() + " max y : " + boxInventory.GetHeight());
-                            List<ItemDrop.ItemData> BoxItems = new List<ItemDrop.ItemData>();
-                            List<string> boxItems = new List<string>();
-                            //generate list of items in box
-                            foreach (ItemDrop.ItemData boxItem in boxInventory.GetAllItems())
+                            if (c == null)
                             {
-                                //boxItems.Add(boxItem?.m_shared.m_name);
-                                BoxItems.Add(boxItem);
-                                boxItems.Add(boxItem.m_shared.m_name);
+                                deletables.Add(containerList.IndexOf(c));
                             }
-
-                            if (boxItems.Contains(item.m_shared.m_name))
+                        }
+                        for (var i = deletables.Count - 1; i > -1; i--)
+                        {
+                            containerList.RemoveAt(deletables[i]);
+                        }
+                        List<Container> boxes = GetNearbyContainers(__instance.transform.position);
+                        Inventory inventory = __instance.GetInventory();
+                        bool success = true;
+                        for (var i = invWidth + excludedSlots.Value; i < invSlotCount; i++)
+                        {
+                            Vector2Int location = ConvertToGrid(i);
+                            ItemDrop.ItemData item = inventory.GetItemAt(location.x, location.y);
+                            string itemName = item?.m_shared.m_name;
+                            bool deposited = false;
+                            //loop through each chest to find a matching item
+                            if (item != null && !item.m_equiped)
                             {
-                                //The item is in this box, check if we can deposit
-                                if (boxInventory.HaveEmptySlot())
+                                _output += ("===================== ITEM =====================\n");
+                                _output += ("Name : " + item.m_shared.m_name + "\n");
+
+                                for (var j = 0; j < boxes.Count; j++)
                                 {
-                                    //the box has empty slots, can deposit item 100%
-                                    _output += ("Box [" + j + "] has empty slots, Depositing All (" + item.m_stack + ") " + item.m_shared.m_name + "\n");
-                                    boxInventory.MoveItemToThis(inventory, item);
-                                    deposited = true;
-                                    break;
-                                }
-                                else
-                                {
-                                    //the box has no empty slot, see if we can fit the item onto existing stacks
-                                    foreach (ItemDrop.ItemData boxItem in BoxItems)
+                                    Inventory boxInventory = boxes[j].GetInventory();
+                                    //Debug.Log("max x : " + boxInventory.GetWidth() + " max y : " + boxInventory.GetHeight());
+                                    List<ItemDrop.ItemData> BoxItems = new List<ItemDrop.ItemData>();
+                                    List<string> boxItems = new List<string>();
+                                    //generate list of items in box
+                                    foreach (ItemDrop.ItemData boxItem in boxInventory.GetAllItems())
                                     {
-                                        if (item.m_shared.m_name == boxItem.m_shared.m_name)
+                                        //boxItems.Add(boxItem?.m_shared.m_name);
+                                        BoxItems.Add(boxItem);
+                                        boxItems.Add(boxItem.m_shared.m_name);
+                                    }
+
+                                    if (boxItems.Contains(item.m_shared.m_name))
+                                    {
+                                        //The item is in this box, check if we can deposit
+                                        if (boxInventory.HaveEmptySlot())
                                         {
-                                            //item has the same name as the inventory item, see if we can stack more onto it.
-                                            int amountToDeposit = HowMuchCanDeposit(boxItem);
-                                            if (amountToDeposit > 0)
+                                            //the box has empty slots, can deposit item 100%
+                                            _output += ("Box [" + j + "] has empty slots, Depositing All (" + item.m_stack + ") " + item.m_shared.m_name + "\n");
+                                            boxInventory.MoveItemToThis(inventory, item);
+                                            deposited = true;
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            //the box has no empty slot, see if we can fit the item onto existing stacks
+                                            foreach (ItemDrop.ItemData boxItem in BoxItems)
                                             {
-                                                //we can fit some on this stack, move it.
-                                                //if deposit some is true, then there is still some of the item left in player inventory
-                                                if (!DepositSome(inventory, boxInventory, item, boxItem))
+                                                if (item.m_shared.m_name == boxItem.m_shared.m_name)
                                                 {
-                                                    _output += ("Able to deposit full stack\n");
-                                                    deposited = true;
-                                                    break;
-                                                }
-                                                else
-                                                {
-                                                    _output += ("Couldn't deposit full stack\n");
+                                                    //item has the same name as the inventory item, see if we can stack more onto it.
+                                                    int amountToDeposit = HowMuchCanDeposit(boxItem);
+                                                    if (amountToDeposit > 0)
+                                                    {
+                                                        //we can fit some on this stack, move it.
+                                                        //if deposit some is true, then there is still some of the item left in player inventory
+                                                        if (!DepositSome(inventory, boxInventory, item, boxItem))
+                                                        {
+                                                            _output += ("Able to deposit full stack\n");
+                                                            deposited = true;
+                                                            break;
+                                                        }
+                                                        else
+                                                        {
+                                                            _output += ("Couldn't deposit full stack\n");
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
+                                    if (deposited)
+                                    {
+                                        //deposited the item, break box loop
+                                        break;
+                                    }
                                 }
+                            }
+                            else if (item != null && item.m_equiped)
+                            {
+                                //equipped item, skip it
+                                deposited = true;
+                            }
+                            else if (item == null)
+                            {
+                                //non-existant item
+                                deposited = true;
                             }
                             if (deposited)
                             {
-                                //deposited the item, break box loop
-                                break;
+                                if (itemName != null)
+                                {
+                                    _output += ("Successfully deposited " + item.m_shared.m_name + "\n");
+                                    _output += "\n";
+                                }
                             }
-                        }                        
-                    }
-                    else if (item != null && item.m_equiped)
-                    {
-                        //equipped item, skip it
-                        deposited = true;
-                    }
-                    else if(item == null)
-                    {
-                        //non-existant item
-                        deposited = true;
-                    }
-                    if (deposited)
-                    {
-                        if (itemName != null)
+                            else
+                            {
+                                _output += ("Couldn't deposit all " + item.m_shared.m_name + "\n");
+                                _output += "\n";
+                                success = false;
+                            }
+                        }
+                        if (success)
                         {
-                            _output += ("Successfully deposited " + item.m_shared.m_name + "\n");
-                            _output += "\n";
+                            ShowHUDMessage("Deposited all items");
+                        }
+                        else
+                        {
+                            ShowHUDMessage("Failed to deposit all items");
                         }
                     }
-                    else
-                    {
-                        _output += ("Couldn't deposit all " + item.m_shared.m_name + "\n");
-                        _output += "\n";
-                        success = false;
-                    }
-                }
-                if (success)
-                {
-                    ShowHUDMessage("Deposited all items");
-                }
-                else
-                {
-                    ShowHUDMessage("Failed to deposit all items");
-                }                
+                }           
                 Debug.Log(_output);
             }
         }
