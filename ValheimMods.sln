@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildFromBoxes", "BuildFrom
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GetTotalResources", "GetTotalResources\GetTotalResources.csproj", "{EE59F9EB-5A3C-416D-85B2-B118846E6156}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "listTesting", "listTesting\listTesting.csproj", "{ED8D02C4-EFA1-4F52-B1A6-2D0164FF590E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{EE59F9EB-5A3C-416D-85B2-B118846E6156}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EE59F9EB-5A3C-416D-85B2-B118846E6156}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EE59F9EB-5A3C-416D-85B2-B118846E6156}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED8D02C4-EFA1-4F52-B1A6-2D0164FF590E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED8D02C4-EFA1-4F52-B1A6-2D0164FF590E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED8D02C4-EFA1-4F52-B1A6-2D0164FF590E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED8D02C4-EFA1-4F52-B1A6-2D0164FF590E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

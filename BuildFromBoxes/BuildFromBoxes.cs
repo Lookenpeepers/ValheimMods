@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace BuildFromBoxes
 {
-    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.5")]
+    [BepInPlugin("Lookenpeepers-BuildFromBoxes", "Build From Boxes", "1.0.6")]
     [HarmonyPatch]
     public class BuildFromBoxes : BaseUnityPlugin
     {
@@ -43,6 +43,22 @@ namespace BuildFromBoxes
             keyPullString = Config.Bind("1 - Pull Items", "Pull Key", "N", "The key to use to deposit items. KeyCodes can be found here https://docs.unity3d.com/ScriptReference/KeyCode.html");
             configPullKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), keyPullString.Value);
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
+        }
+        private static bool CheckValidity(Container c)
+        {
+            if (c.GetInventory() != null)
+            {
+                if ((c.name.Contains("chest") || c.name.Contains("Container")))
+                {
+                    long ID = player.GetPlayerID();
+                    if (Traverse.Create(c).Method("CheckAccess", new object[] { ID }).GetValue<bool>())
+                    {
+                        Traverse.Create(c).Method("Load").GetValue();
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Player), "Update")]
@@ -277,18 +293,10 @@ namespace BuildFromBoxes
         }
         private static void RemoveInvalidChests(Piece p)
         {
-            List<int> deletables = new List<int>();
-            //Container[] boxes = containerList.Select(box => box.GetComponent<Container>()).ToArray();
+            containerList = containerList.Where(box => box != null).ToList();
             foreach (Container c in containerList)
             {
-                if (c == null)
-                {
-                    deletables.Add(containerList.IndexOf(c));
-                }
-            }
-            for (var i = deletables.Count - 1; i > -1; i--)
-            {
-                containerList.RemoveAt(deletables[i]);
+                Traverse.Create(c).Method("Load").GetValue();
             }
             List<ItemToMove> neededItems = GetNeededItems(p);
             //GET EMPTY SLOTS DIFFERENTLY
@@ -433,9 +441,9 @@ namespace BuildFromBoxes
         [HarmonyPatch(typeof(Container), "Awake")]
         static class Container_Awake_Patch
         {
-            static void Postfix(Container __instance, ZNetView ___m_nview)
+            static void Postfix(Container __instance)
             {
-                if ((__instance.name.Contains("chest") || __instance.name.Contains("Container")) && __instance.GetInventory() != null)
+                if (CheckValidity(__instance))
                 {
                     containerList.Add(__instance);
                 }
