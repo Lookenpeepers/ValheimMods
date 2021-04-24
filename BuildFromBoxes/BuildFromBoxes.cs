@@ -297,6 +297,7 @@ namespace BuildFromBoxes
             foreach (Container c in containerList)
             {
                 Traverse.Create(c).Method("Load").GetValue();
+                
             }
             List<ItemToMove> neededItems = GetNeededItems(p);
             //GET EMPTY SLOTS DIFFERENTLY

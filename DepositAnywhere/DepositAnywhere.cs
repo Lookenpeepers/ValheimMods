@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -9,7 +10,7 @@ using UnityEngine;
 namespace DepositAnywhere
 {
     //Initialize BepInEx
-    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.7")]
+    [BepInPlugin("Lookenpeepers-DepositAnywhere", "Deposit Anywhere", "1.1.9")]
     //[BepInProcess("valheim.exe")]
     [HarmonyPatch]
     //Extend BaseUnityPlugin
@@ -71,57 +72,37 @@ namespace DepositAnywhere
             if (keyDown)
             {
                 keyDown = false;
+                bool success = true;
                 _output = "\n";
                 GameObject hoverItem = __instance.GetHoverObject();
                 if (hoverItem != null)
                 {
                     _output += hoverItem.name + "\n";
                     string hoverName = hoverItem.name;
-                    if (hoverName.Contains("chest") || hoverName.Contains("Container"))
+                    if (hoverName.Contains("chest") || hoverName.Contains("Container") || hoverName.Contains("Chest"))
                     {
                         //hover item is a container
                         //remove invalid chests
-                        List<int> deletables = new List<int>();
-                        foreach (Container c in containerList)
-                        {
-                            if (c == null)
-                            {
-                                deletables.Add(containerList.IndexOf(c));
-                            }
-                        }
-                        for (var i = deletables.Count - 1; i > -1; i--)
-                        {
-                            containerList.RemoveAt(deletables[i]);
-                        }
+                        containerList = containerList.Where(c => c != null).ToList();
                         List<Container> boxes = GetNearbyContainers(__instance.transform.position);
                         Inventory inventory = __instance.GetInventory();
-                        bool success = true;
                         for (var i = invWidth + excludedSlots.Value; i < invSlotCount; i++)
                         {
                             Vector2Int location = ConvertToGrid(i);
                             ItemDrop.ItemData item = inventory.GetItemAt(location.x, location.y);
                             string itemName = item?.m_shared.m_name;
                             bool deposited = false;
-                            //loop through each chest to find a matching item
                             if (item != null && !item.m_equiped)
                             {
                                 _output += ("===================== ITEM =====================\n");
                                 _output += ("Name : " + item.m_shared.m_name + "\n");
-
+                                //loop through each chest to find a matching item
                                 for (var j = 0; j < boxes.Count; j++)
                                 {
                                     Inventory boxInventory = boxes[j].GetInventory();
-                                    //Debug.Log("max x : " + boxInventory.GetWidth() + " max y : " + boxInventory.GetHeight());
-                                    List<ItemDrop.ItemData> BoxItems = new List<ItemDrop.ItemData>();
-                                    List<string> boxItems = new List<string>();
                                     //generate list of items in box
-                                    foreach (ItemDrop.ItemData boxItem in boxInventory.GetAllItems())
-                                    {
-                                        //boxItems.Add(boxItem?.m_shared.m_name);
-                                        BoxItems.Add(boxItem);
-                                        boxItems.Add(boxItem.m_shared.m_name);
-                                    }
-
+                                    List<ItemDrop.ItemData> BoxItems = boxInventory.GetAllItems();
+                                    List<string> boxItems = boxInventory.GetAllItems().Select(c => c.m_shared.m_name).ToList();
                                     if (boxItems.Contains(item.m_shared.m_name))
                                     {
                                         //The item is in this box, check if we can deposit
@@ -164,6 +145,7 @@ namespace DepositAnywhere
                                     if (deposited)
                                     {
                                         //deposited the item, break box loop
+                                        Traverse.Create(boxInventory).Method("Changed").GetValue();
                                         break;
                                     }
                                 }
@@ -231,12 +213,20 @@ namespace DepositAnywhere
             {
                 _output += ("Depositing " + amountTakeable + " " + inventoryItem.m_shared.m_name + " At : " + location.ToString() + "\n");
                 boxInventory.MoveItemToThis(playerInventory, inventoryItem, amountTakeable, location.x, location.y);
+                if(boxInventory.m_onChanged != null)
+                {
+                    boxInventory.m_onChanged();
+                }
                 return true;
             }
             else
             {
                 _output += ("Depositing " + inventoryItem.m_stack + " " + inventoryItem.m_shared.m_name + " At : " + location.ToString() + "\n");
                 boxInventory.MoveItemToThis(playerInventory, inventoryItem, inventoryItem.m_stack, location.x, location.y);
+                if (boxInventory.m_onChanged != null)
+                {
+                    boxInventory.m_onChanged();
+                }
                 return false;
             }
         }
@@ -259,9 +249,12 @@ namespace DepositAnywhere
         {
             static void Postfix(Container __instance, ZNetView ___m_nview)
             {
-                if ((__instance.name.Contains("chest") || __instance.name.Contains("Container")) && __instance.GetInventory() != null)
+                if ((__instance.name.Contains("chest") || __instance.name.Contains("Container")) || __instance.name.Contains("Chest"))
                 {
-                    containerList.Add(__instance);
+                    if (__instance.GetInventory() != null)
+                    {
+                        containerList.Add(__instance);
+                    }
                 }
             }
         }

@@ -53,7 +53,10 @@ namespace listTesting
             {
                 _keyDown = false;
                 _output = "\n";
-                CleanChestList();
+                GetHoverItem();
+                //CleanChestList();
+                //check hover item
+
             }
         }
         [HarmonyPostfix]
@@ -80,6 +83,15 @@ namespace listTesting
         //{
         //    containerList.Remove(__instance);
         //}
+        private static void GetHoverItem()
+        {
+            ItemDrop.ItemData item = _player.GetInventory().GetItemAt(1, 1);
+            string name = item.m_shared.m_name;
+            string sname = item.m_dropPrefab.name;
+            string hoveritem = _player.GetHoverName();
+            _output += name + " : " + sname + "\n" + hoveritem;
+            Debug.Log(_output);
+        }
         private static void CleanChestList()
         {
             
